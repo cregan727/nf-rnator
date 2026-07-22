@@ -1,0 +1,7 @@
+barcode,well,project,sample_name,genome
+TACGTTATTCCGAA,A01,ProjectX,SampleX_01,mouse
+AACAGGATAACTCC,B01,ProjectX,SampleX_02,mouse
+ACTCAGGCACCTCC,C01,ProjectX,SampleX_03,mouse
+ACGAGCAGATGCAG,D01,ProjectY,SampleY_01,human
+TTCAATCTCCTTAG,E01,ProjectY,SampleY_02,human
+CTCGGTTCGAATGC,F01,ProjectY,SampleY_03,human

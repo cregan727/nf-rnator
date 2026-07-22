@@ -1,0 +1,3 @@
+genome,star_index
+mouse,/grid/scc/data/CellRanger/references/refdata-gex-GRCm39-2024-A/star_index_custom
+human,/path/to/human/star_index

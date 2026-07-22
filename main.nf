@@ -289,3 +289,4 @@ workflow {
 
     MERGE_PROJECT_H5AD(ch_by_project)
     PROJECT_REPORT(MERGE_PROJECT_H5AD.out.h5ad)
+}

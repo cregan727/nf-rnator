@@ -1,0 +1,3 @@
+library,fastq_1,fastq_2,plate_map
+LibraryA,/path/to/LibraryA_R1.fastq.gz,/path/to/LibraryA_R2.fastq.gz,platemap_LibraryA.csv
+LibraryB,/path/to/LibraryB_R1.fastq.gz,/path/to/LibraryB_R2.fastq.gz,platemap_LibraryB.csv

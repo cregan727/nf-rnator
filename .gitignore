@@ -1,0 +1,23 @@
+# Nextflow run artifacts
+.nextflow/
+.nextflow.log*
+work/
+singularity_cache/
+ 
+# Pipeline outputs
+results/
+logs/
+ 
+# Python
+__pycache__/
+*.pyc
+ 
+# Data files that shouldn't be committed (kit-specific / large / site-specific)
+V5A_barcodes.txt
+*.h5ad
+*.fastq.gz
+*.fq.gz
+ 
+# Editor/OS cruft
+.DS_Store
+*.swp

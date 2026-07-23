@@ -115,6 +115,12 @@ process STARSOLO {
         --outSAMtype BAM SortedByCoordinate \\
         --outSAMattributes NH HI nM AS CR UR CB UB GX GN sS sQ sM \\
         --outFileNamePrefix ${library}.${genome}.
+
+    # STAR doesn't gzip Solo.out matrix/barcode/feature files by default,
+    # but scanpy's read_10x_mtx() (used in mtx_to_h5ad.py) expects the
+    # gzipped 10x-style naming convention -- mirrors what nf-core/scrnaseq's
+    # own STAR_ALIGN module does for the same reason.
+    find ${library}.${genome}.Solo.out \\( -name "*.tsv" -o -name "*.mtx" \\) -exec gzip {} \\;
     """
 }
 

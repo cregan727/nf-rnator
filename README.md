@@ -1,4 +1,4 @@
-# brbseq-pipeline
+![RNAtor](rnator_banner.svg)
 
 A minimal Nextflow pipeline for Alithea MERCURIUS BRB-seq data (kit PN 10813,
 V5A barcode set), built to do only what BRB-seq actually needs rather than

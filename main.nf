@@ -58,7 +58,7 @@ params.outdir     = './results'
 
 process FASTQC {
     tag "$library"
-    publishDir "${params.outdir}/plates/${library}/fastqc", mode: 'copy'
+    publishDir { "${params.outdir}/plates/${library}/fastqc" }, mode: 'copy'
     cpus 2
 
     input:
@@ -75,7 +75,7 @@ process FASTQC {
 
 process STARSOLO {
     tag "${library}/${genome}"
-    publishDir "${params.outdir}/plates/${library}/${genome}", mode: 'copy'
+    publishDir { "${params.outdir}/plates/${library}/${genome}" }, mode: 'copy'
     cpus 32
     memory '120 GB'
 
@@ -120,7 +120,7 @@ process STARSOLO {
 
 process MTX_TO_H5AD {
     tag "${library}/${genome}"
-    publishDir "${params.outdir}/plates/${library}/${genome}", mode: 'copy'
+    publishDir { "${params.outdir}/plates/${library}/${genome}" }, mode: 'copy'
     cpus 2
 
     input:
@@ -144,7 +144,7 @@ process MTX_TO_H5AD {
 
 process MERGE_PLATE_GENOMES {
     tag "$library"
-    publishDir "${params.outdir}/plates/${library}", mode: 'copy'
+    publishDir { "${params.outdir}/plates/${library}" }, mode: 'copy'
     cpus 2
 
     input:
@@ -177,7 +177,7 @@ process SPLIT_H5AD_BY_PROJECT {
 
 process PLATE_REPORT {
     tag "$library"
-    publishDir "${params.outdir}/plates/${library}", mode: 'copy'
+    publishDir { "${params.outdir}/plates/${library}" }, mode: 'copy'
     cpus 2
 
     input:
@@ -194,7 +194,7 @@ process PLATE_REPORT {
 
 process MERGE_PROJECT_H5AD {
     tag "$project"
-    publishDir "${params.outdir}/projects/${project}", mode: 'copy'
+    publishDir { "${params.outdir}/projects/${project}" }, mode: 'copy'
     cpus 2
 
     input:
@@ -211,7 +211,7 @@ process MERGE_PROJECT_H5AD {
 
 process PROJECT_REPORT {
     tag "$project"
-    publishDir "${params.outdir}/projects/${project}", mode: 'copy'
+    publishDir { "${params.outdir}/projects/${project}" }, mode: 'copy'
     cpus 2
 
     input:

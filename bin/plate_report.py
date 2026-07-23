@@ -71,7 +71,7 @@ body {{
 .container {{ max-width: 1400px; margin: 0 auto; background: white; border-radius: 12px;
              border: 1px solid {BORDER}; overflow: hidden; box-shadow: 0 2px 12px rgba(63,122,52,0.08); }}
 header {{ background: white; padding: 32px 40px 24px; text-align: center; border-bottom: 1px solid {BORDER}; }}
-header img.banner {{ max-width: 100%; width: 560px; image-rendering: pixelated; }}
+header img.banner {{ max-width: 100%; width: 900px; image-rendering: pixelated; }}
 header p.subtitle {{ font-size: 1.1em; color: {TEXT}; margin-top: 16px; }}
 .content {{ padding: 40px; }}
 section {{ margin-bottom: 50px; }}

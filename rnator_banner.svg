@@ -1,0 +1,41 @@
+<svg width="800" height="160" viewBox="0 0 800 160" xmlns="http://www.w3.org/2000/svg">
+  <rect width="800" height="160" rx="12" fill="#1a2e1a"/>
+
+  <!-- scanlines -->
+  <pattern id="scan" x="0" y="0" width="1" height="4" patternUnits="userSpaceOnUse">
+    <rect width="1" height="3" fill="transparent"/>
+    <rect y="3" width="1" height="1" fill="rgba(0,0,0,0.07)"/>
+  </pattern>
+  <rect width="800" height="160" rx="12" fill="url(#scan)"/>
+
+  <!-- pixel gator scaled up 5x, centered left -->
+  <g transform="translate(40, 30) scale(5)">
+    <rect x="0" y="6" width="2" height="2" fill="#4a9a30"/>
+    <rect x="2" y="5" width="2" height="3" fill="#4a9a30"/>
+    <rect x="4" y="4" width="2" height="4" fill="#5ab840"/>
+    <rect x="6" y="3" width="10" height="5" fill="#5ab840"/>
+    <rect x="16" y="4" width="2" height="4" fill="#5ab840"/>
+    <rect x="18" y="5" width="2" height="3" fill="#4a9a30"/>
+    <rect x="20" y="6" width="2" height="2" fill="#4a9a30"/>
+    <rect x="22" y="7" width="2" height="1" fill="#3a7a20"/>
+    <rect x="6" y="2" width="2" height="2" fill="#5ab840"/>
+    <rect x="8" y="2" width="6" height="2" fill="#6aca50"/>
+    <rect x="6" y="3" width="12" height="1" fill="#6aca50"/>
+    <rect x="6" y="8" width="2" height="2" fill="#3a7a20"/>
+    <rect x="10" y="8" width="2" height="2" fill="#3a7a20"/>
+    <rect x="14" y="8" width="2" height="2" fill="#3a7a20"/>
+    <rect x="18" y="8" width="2" height="2" fill="#3a7a20"/>
+    <rect x="6" y="3" width="2" height="1" fill="#c8e8a0"/>
+    <rect x="7" y="3" width="1" height="1" fill="#1a1a1a"/>
+    <rect x="4" y="4" width="3" height="1" fill="#8acc60"/>
+    <rect x="4" y="5" width="2" height="1" fill="#c8e090"/>
+    <rect x="5" y="5" width="1" height="1" fill="#e0e8c0"/>
+  </g>
+
+  <!-- RNAtor text -->
+  <text x="210" y="100" font-family="Impact, Arial Black, sans-serif" font-size="80" font-weight="700" fill="#7dce5a" letter-spacing="6"
+    style="text-shadow: 4px 4px 0 #2a5a1a">RNAtor</text>
+
+  <!-- tagline -->
+  <text x="212" y="128" font-family="monospace" font-size="13" fill="#a8e88a" letter-spacing="3" opacity="0.8">QUICK &amp; DIRTY BULK RNA-SEQ  ·  CSHL NGS CORE</text>
+</svg>

@@ -228,6 +228,7 @@ process PROJECT_REPORT {
 
 workflow {
     ch_genomes = file(params.genomes)
+    ch_whitelist = file(params.whitelist)
 
     ch_libraries = Channel.fromPath(params.input)
         .splitCsv(header: true)
@@ -256,7 +257,7 @@ workflow {
             genomes.collect { genome -> tuple(library, r1, r2, plate_map, genome) }
         }
 
-    STARSOLO(ch_libraries_by_genome, params.whitelist, ch_genomes)
+    STARSOLO(ch_libraries_by_genome, ch_whitelist, ch_genomes)
 
     MTX_TO_H5AD(STARSOLO.out.solo_out)
 

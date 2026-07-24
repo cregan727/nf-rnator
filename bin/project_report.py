@@ -14,6 +14,7 @@ import anndata as ad
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+import numpy as np
 import scanpy as sc
 
 # RNATOR banner (gator mascot + wordmark + tagline) cropped directly
@@ -73,6 +74,8 @@ h3 {{ font-size: 0.95em; color: {GREEN_DIM}; text-transform: uppercase; letter-s
                         letter-spacing: 1.5px; margin-bottom: 8px; }}
 .summary-card .value {{ font-size: 1.7em; font-weight: bold; color: {TEXT_BRIGHT}; }}
 .figure {{ margin: 25px 0; text-align: center; }}
+.pca-row {{ display: flex; gap: 20px; flex-wrap: wrap; align-items: flex-start; justify-content: center; margin: 25px 0; }}
+.pca-row .figure {{ margin: 0; flex: 0 0 auto; }}
 img {{ max-width: 100%; border-radius: 8px; border: 1px solid {BORDER}; }}
 table.tbl {{ border-collapse: collapse; margin-bottom: 2em; width: 100%; font-size: 0.9em; }}
 table.tbl td, table.tbl th {{ padding: 8px 12px; border-bottom: 1px solid {BORDER}; text-align: left; color: {TEXT}; }}
@@ -135,6 +138,25 @@ def render_pca_variance(ad2, title):
     return fig
 
 
+def render_pca_loadings(ad2, pc_idx, title, n_top=12):
+    """Top +/- contributing genes for one PC (index 0 = PC1, etc)."""
+    loadings = ad2.varm["PCs"][:, pc_idx]
+    order = np.argsort(loadings)
+    idx = np.concatenate([order[:n_top], order[-n_top:]])
+    genes = ad2.var_names[idx].tolist()
+    vals = loadings[idx]
+    colors = ["#c0504d" if v < 0 else GREEN for v in vals]
+
+    fig, ax = plt.subplots(figsize=(6, max(3.5, len(idx) * 0.28)))
+    ax.barh(range(len(idx)), vals, color=colors)
+    ax.set_yticks(range(len(idx)))
+    ax.set_yticklabels(genes, fontsize=7)
+    ax.axvline(0, color=BORDER, linewidth=0.9)
+    ax.set_xlabel(f"PC{pc_idx+1} loading")
+    ax.set_title(title, fontsize=10)
+    return fig
+
+
 def summary_card(label, value):
     return f'<div class="summary-card"><div class="label">{label}</div><div class="value">{value}</div></div>'
 
@@ -150,8 +172,9 @@ def main():
     adata.obs["n_counts"] = adata.X.sum(axis=1).A1 if hasattr(adata.X, "A1") else adata.X.sum(axis=1)
     adata.obs["n_genes"] = (adata.X > 0).sum(axis=1).A1 if hasattr(adata.X, "A1") else (adata.X > 0).sum(axis=1)
 
-    per_sample = adata.obs[["barcode", "sample_name", "library", "n_counts", "n_genes"]] \
-        .sort_values("n_counts", ascending=False).reset_index(drop=True)
+    sample_cols = ["barcode", "sample_name", "library", "n_reads", "n_counts", "n_genes"]
+    sample_cols = [c for c in sample_cols if c in adata.obs.columns]
+    per_sample = adata.obs[sample_cols].sort_values("n_counts", ascending=False).reset_index(drop=True)
 
     fig1, ax1 = plt.subplots(figsize=(10, 4))
     ax1.bar(range(len(per_sample)), per_sample["n_counts"], color=GREEN)
@@ -171,25 +194,36 @@ def main():
     if ad2 is None:
         pca_html = "<p class=\"note\">Too few samples in this project for a meaningful PCA (need at least 3).</p>"
     else:
+        fig_load1 = render_pca_loadings(ad2, 0, "Top genes: PC1")
+        fig_load2 = render_pca_loadings(ad2, 1, "Top genes: PC2")
+        loadings_html = (f'<div class="figure"><img src="data:image/png;base64,{fig_to_base64(fig_load1)}"></div>'
+                          f'<div class="figure"><img src="data:image/png;base64,{fig_to_base64(fig_load2)}"></div>')
+
         pca_sections = []
         if ad2.obs["library"].nunique(dropna=True) > 1:
             fig = render_pca_plot(ad2, "library", f"{args.project}: PCA colored by plate/library")
-            pca_sections.append(f'<div class="figure"><h3>Colored by plate</h3><img src="data:image/png;base64,{fig_to_base64(fig)}"></div>')
+            pca_sections.append(f'<h3>Colored by plate</h3><div class="pca-row">'
+                                 f'<div class="figure"><img src="data:image/png;base64,{fig_to_base64(fig)}"></div>'
+                                 f'{loadings_html}</div>')
         else:
             fig = render_pca_plot(ad2, "sample_name", f"{args.project}: PCA by sample")
-            pca_sections.append(f'<div class="figure"><img src="data:image/png;base64,{fig_to_base64(fig)}"></div>')
+            pca_sections.append(f'<div class="pca-row"><div class="figure">'
+                                 f'<img src="data:image/png;base64,{fig_to_base64(fig)}"></div>{loadings_html}</div>')
         fig_var = render_pca_variance(ad2, f"{args.project}: PCA variance explained")
         pca_sections.append(f'<div class="figure"><h3>Variance explained</h3><img src="data:image/png;base64,{fig_to_base64(fig_var)}"></div>')
         pca_html = "".join(pca_sections)
 
     mean_counts = int(per_sample["n_counts"].mean()) if len(per_sample) else 0
     mean_genes = int(per_sample["n_genes"].mean()) if len(per_sample) else 0
-    cards = "".join([
-        summary_card("Samples", adata.n_obs),
-        summary_card("Plates", n_libraries),
+    cards = [summary_card("Samples", adata.n_obs), summary_card("Plates", n_libraries)]
+    if "n_reads" in per_sample.columns:
+        mean_reads = int(per_sample["n_reads"].mean()) if len(per_sample) else 0
+        cards.append(summary_card("Mean reads / sample", f"{mean_reads:,}"))
+    cards += [
         summary_card("Mean UMIs / sample", f"{mean_counts:,}"),
         summary_card("Mean genes / sample", f"{mean_genes:,}"),
-    ])
+    ]
+    cards = "".join(cards)
 
     html = f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>{args.project} -- Project QC Report</title>

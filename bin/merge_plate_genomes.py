@@ -27,7 +27,7 @@ def main():
         adata = ad.read_h5ad(args.inputs[0])
     else:
         fragments = [ad.read_h5ad(f) for f in args.inputs]
-        adata = ad.concat(fragments, join="outer", index_unique=None)
+        adata = ad.concat(fragments, join="outer", merge="first", index_unique=None)
 
     adata.write_h5ad(args.output)
     genomes = sorted(adata.obs["genome"].unique()) if "genome" in adata.obs else ["?"]

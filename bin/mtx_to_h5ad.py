@@ -19,8 +19,15 @@ other genome present on the plate -- a well with unexpectedly high
 off-target-genome counts is a real mixup/contamination signal that would
 otherwise be silently discarded.
 
+--cell-reads-stats takes STARsolo's CellReads.stats (from
+--soloCellReadStats Standard), which carries real RAW read counts per
+barcode (the "cbMatch" column: reads whose CB matched this barcode) --
+distinct from n_counts (deduplicated UMI count), which is all that was
+available before. Optional: if not given, n_reads just won't be populated.
+
 Usage:
     mtx_to_h5ad.py --solo-dir Library.mouse.Solo.out/Gene/raw \
+                    --cell-reads-stats Library.mouse.Solo.out/Gene/CellReads.stats \
                     --platemap platemap_Library.csv \
                     --library Library --genome mouse \
                     --output Library.mouse.h5ad \
@@ -36,6 +43,9 @@ import pandas as pd
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--solo-dir", required=True, help="STARsolo Solo.out/Gene/raw directory")
+    ap.add_argument("--cell-reads-stats", default=None,
+                     help="STARsolo Solo.out/Gene/CellReads.stats (from --soloCellReadStats Standard) -- "
+                          "optional, adds real raw read counts (n_reads) per well")
     ap.add_argument("--platemap", required=True, help="CSV: barcode,well,project,sample_name,genome")
     ap.add_argument("--library", required=True, help="Library/plate name")
     ap.add_argument("--genome", required=True, help="Genome key this alignment was run against")
@@ -46,6 +56,17 @@ def main():
 
     adata = sc.read_10x_mtx(args.solo_dir, var_names="gene_ids")
     adata.var_names_make_unique()
+
+    # real raw read counts per barcode (pre-deduplication) -- distinct from
+    # n_counts, which is deduplicated UMI count
+    read_counts = None
+    if args.cell_reads_stats:
+        try:
+            stats = pd.read_csv(args.cell_reads_stats, sep=r"\s+")
+            read_counts = stats.set_index("CB")["cbMatch"]
+        except Exception as e:
+            print(f"WARNING: couldn't parse {args.cell_reads_stats} ({e}) -- "
+                  f"n_reads will be unavailable", file=sys.stderr)
 
     platemap_full = pd.read_csv(args.platemap, dtype=str)
     required_cols = {"barcode", "well", "project", "sample_name", "genome"}
@@ -75,6 +96,8 @@ def main():
     adata.obs["library"] = args.library
     adata.obs["barcode"] = adata.obs_names
     adata.obs = adata.obs.join(platemap[["well", "project", "sample_name"]], on="barcode")
+    if read_counts is not None:
+        adata.obs["n_reads"] = adata.obs["barcode"].map(read_counts)
 
     # drop every well NOT assigned to this genome (expected/normal on a
     # mixed-genome plate -- those wells' real gene-level data comes from a

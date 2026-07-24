@@ -228,7 +228,15 @@ def render_pca_loadings(ad2, pc_idx, title, n_top=12):
     loadings = ad2.varm["PCs"][:, pc_idx]
     order = np.argsort(loadings)
     idx = np.concatenate([order[:n_top], order[-n_top:]])
-    genes = ad2.var_names[idx].tolist()
+
+    if "gene_symbols" in ad2.var.columns:
+        labels = ad2.var["gene_symbols"].copy()
+        blank = labels.isna() | (labels.astype(str).str.strip() == "")
+        labels[blank] = ad2.var_names[blank]  # fall back to Ensembl ID if no symbol
+        genes = labels.iloc[idx].tolist()
+    else:
+        genes = ad2.var_names[idx].tolist()
+
     vals = loadings[idx]
     colors = ["#c0504d" if v < 0 else GREEN for v in vals]
 

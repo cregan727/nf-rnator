@@ -112,6 +112,7 @@ process STARSOLO {
         --soloStrand Forward \\
         --soloCellFilter TopCells 96 \\
         --soloFeatures Gene \\
+        --soloCellReadStats Standard \\
         --outSAMtype BAM SortedByCoordinate \\
         --outSAMattributes NH HI nM AS CR UR CB UB GX GN sS sQ sM \\
         --outFileNamePrefix ${library}.${genome}.
@@ -140,6 +141,7 @@ process MTX_TO_H5AD {
     """
     mtx_to_h5ad.py \\
         --solo-dir ${solo_out}/Gene/raw \\
+        --cell-reads-stats ${solo_out}/Gene/CellReads.stats \\
         --platemap ${plate_map} \\
         --library ${library} \\
         --genome ${genome} \\
@@ -297,3 +299,4 @@ workflow {
     MERGE_PROJECT_H5AD(ch_by_project)
     PROJECT_REPORT(MERGE_PROJECT_H5AD.out.h5ad)
 }
+

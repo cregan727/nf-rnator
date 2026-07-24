@@ -28,7 +28,7 @@ def main():
         # library's reference. Mixed-genome projects are a real edge case
         # here; the resulting matrix will have disjoint blocks of
         # mouse/human genes rather than anything biologically merged.
-        adata = ad.concat(fragments, join="outer", label="library_batch", index_unique=None)
+        adata = ad.concat(fragments, join="outer", merge="first", label="library_batch", index_unique=None)
 
     adata.write_h5ad(args.output)
     print(f"Wrote {args.output}: {adata.n_obs} barcodes x {adata.n_vars} genes "

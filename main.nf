@@ -234,6 +234,25 @@ process PROJECT_REPORT {
     """
 }
 
+process EXPORT_GENE_TABLE {
+    tag "$project"
+    publishDir { "${params.outdir}/projects/${project}" }, mode: 'copy'
+    cpus 2
+
+    input:
+    tuple val(project), path(h5ad)
+
+    output:
+    tuple path("${project}_counts.tsv"), path("${project}_metadata.tsv")
+
+    script:
+    """
+    export_gene_table.py --h5ad ${h5ad} --project "${project}" \\
+        --counts-output "${project}_counts.tsv" \\
+        --metadata-output "${project}_metadata.tsv"
+    """
+}
+
 workflow {
     ch_genomes = file(params.genomes)
     ch_whitelist = file(params.whitelist)
@@ -298,5 +317,6 @@ workflow {
 
     MERGE_PROJECT_H5AD(ch_by_project)
     PROJECT_REPORT(MERGE_PROJECT_H5AD.out.h5ad)
+    EXPORT_GENE_TABLE(MERGE_PROJECT_H5AD.out.h5ad)
 }
 

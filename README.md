@@ -1,4 +1,4 @@
-![RNAtor](rnator_banner.svg)
+# brbseq-pipeline
 
 A minimal Nextflow pipeline for Alithea MERCURIUS BRB-seq data (kit PN 10813,
 V5A barcode set), built to do only what BRB-seq actually needs rather than
@@ -36,7 +36,63 @@ downloaded from a chat interface, some non-git zip/tar packaging, etc. --
 this bit will be lost even though it's set correctly in the git history, so
 run this once after cloning/downloading regardless.
 
+## Publishing to GitHub / running as `owner/repo`
+
+Nextflow can pull and run a pipeline directly from GitHub, the same way
+`nextflow run nf-core/scrnaseq` works:
+
+```bash
+nextflow run <owner>/<repo> --input samplesheet.csv --genomes genomes.csv --whitelist V5A_barcodes.txt --outdir results
+```
+
+This clones the repo into `~/.nextflow/assets/<owner>/<repo>` and runs its
+`main.nf`. To set this up:
+
+```bash
+chmod +x bin/*.py     # do this BEFORE committing, not after cloning
+git init
+git add .
+git commit -m "Initial commit"
+git remote add origin git@github.com:<owner>/<repo>.git
+git push -u origin main
+```
+
+**On the executable bit specifically:** unlike downloading these files
+through a chat interface (which strips file permissions -- see the setup
+note above), git *does* correctly track and restore the executable bit --
+but only for what you had set at the moment you ran `git add`. Run
+`chmod +x bin/*.py` first, confirm it stuck with `ls -la bin/`, and only
+then `git add`/commit/push. Anyone who subsequently runs this via
+`nextflow run owner/repo` gets a working, already-executable `bin/`
+automatically -- no post-clone `chmod` needed on their end, unlike this
+initial handoff.
+
+To pin a specific version rather than always running the latest commit on
+the default branch, use `-r <branch|tag|commit>`:
+
+```bash
+nextflow run <owner>/<repo> -r v0.1.0 --input ...
+```
+
+To update a locally cached copy to the latest commit: `nextflow pull <owner>/<repo>`.
+
+`submit_slurm.sh` is already set up for this pattern -- edit the
+`PIPELINE=EDIT_ME/brbseq-pipeline` line to your actual `owner/repo` once
+it's pushed.
+
 ## Quick start
+
+Once pushed to GitHub (see above):
+
+```bash
+nextflow run <owner>/<repo> \
+    --input samplesheet.csv \
+    --genomes genomes.csv \
+    --whitelist V5A_barcodes.txt \
+    --outdir results
+```
+
+Or run straight from a local clone without involving GitHub at all:
 
 ```bash
 nextflow run main.nf \

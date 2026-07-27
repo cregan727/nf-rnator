@@ -3,15 +3,21 @@
 Export a project-level .h5ad to a plain gene expression table: gene
 SYMBOLS as rows, sample NAMES as columns, raw counts as values. This is
 the standard format expected by several downstream tools (e.g. BioJupies'
-upload spec), not a format specific to any one of them.
+upload spec), not a format specific to any one of them. BioJupies-style
+tools expect every column after the first to be a sample, so this file
+deliberately does NOT carry an Ensembl ID column -- that would break the
+format. The Ensembl ID for each row is written to a separate companion
+file instead (--gene-id-map-output), so it's still available without
+compromising the counts table itself.
 
-Also writes a companion metadata table (one row per sample: sample_name,
-project, library, well, genome).
+Also writes a companion sample metadata table (one row per sample:
+sample_name, project, library, well, genome).
 
 Usage:
     export_gene_table.py --h5ad ProjectX.h5ad --project ProjectX \
                          --counts-output ProjectX_counts.tsv \
-                         --metadata-output ProjectX_metadata.tsv
+                         --metadata-output ProjectX_metadata.tsv \
+                         --gene-id-map-output ProjectX_gene_id_map.tsv
 """
 import argparse
 import sys
@@ -27,6 +33,10 @@ def main():
     ap.add_argument("--project", required=True)
     ap.add_argument("--counts-output", required=True)
     ap.add_argument("--metadata-output", required=True)
+    ap.add_argument("--gene-id-map-output", required=True,
+                     help="Companion gene_symbol -> EnsemblID lookup -- kept separate from "
+                          "counts-output so that file stays strictly BioJupies-compatible "
+                          "(every column after the first must be a sample)")
     args = ap.parse_args()
 
     adata = ad.read_h5ad(args.h5ad)
@@ -59,12 +69,17 @@ def main():
     counts = counts.round().astype(int)
 
     # de-duplicate row labels (keep all rows, just make labels unique --
-    # dropping/summing duplicate-symbol genes would silently lose data)
+    # dropping/summing duplicate-symbol genes would silently lose data).
+    # Do this BEFORE building the ID map too, so the map's labels exactly
+    # match the counts table's actual row labels, dupes and all.
     if counts.index.duplicated().any():
         counts.index = pd.io.common.dedup_names(counts.index, is_potential_multiindex=False) \
             if hasattr(pd.io.common, "dedup_names") else _dedup(counts.index)
 
     counts.to_csv(args.counts_output, sep="\t")
+
+    gene_id_map = pd.DataFrame({"gene_symbol": counts.index, "EnsemblID": adata.var_names.values})
+    gene_id_map.to_csv(args.gene_id_map_output, sep="\t", index=False)
 
     meta_cols = [c for c in ["sample_name", "project", "library", "well", "genome", "n_reads", "n_counts"]
                  if c in adata.obs.columns]
@@ -73,6 +88,7 @@ def main():
 
     print(f"Wrote {args.counts_output}: {counts.shape[0]} genes x {counts.shape[1]} samples "
           f"({n_fallback} gene(s) fell back to Ensembl ID, no symbol available)")
+    print(f"Wrote {args.gene_id_map_output}: {len(gene_id_map)} gene_symbol -> EnsemblID mappings")
     print(f"Wrote {args.metadata_output}: {len(metadata)} samples")
 
 

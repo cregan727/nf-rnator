@@ -1,3 +1,3 @@
-genome,star_index
-mouse,/grid/scc/data/CellRanger/references/refdata-gex-GRCm39-2024-A/star_index_custom
-human,/path/to/human/star_index
+genome,star_index,gtf,species,annotation_source
+mouse,/grid/scc/data/CellRanger/references/refdata-gex-GRCm39-2024-A/star_index_custom,/grid/scc/data/CellRanger/references/refdata-gex-GRCm39-2024-A/genes/genes.gtf,Mus musculus,GENCODE vM33 / Ensembl 110
+human,/grid/scc/data/CellRanger/STAR/references/refdata-gex-GRCh38-2020-A_STARsolo-2.7.8a,/grid/scc/data/CellRanger/references/refdata-gex-GRCh38-2020-A/genes/genes.gtf,Homo sapiens,GENCODE v32 / Ensembl 98

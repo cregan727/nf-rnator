@@ -272,6 +272,28 @@ def summary_card(label, value, variant=""):
     return f'<div class="{cls}"><div class="label">{label}</div><div class="value">{value}</div></div>'
 
 
+METHODS_TEXT = """
+<p>Library preparation: Alithea MERCURIUS BRB-seq (bulk RNA barcoding and
+sequencing), barcode set V5D. Read 1 carries a 14&nbsp;bp cell/sample barcode
+(positions 1-14) followed by a 14&nbsp;bp UMI (positions 15-28); Read 2
+carries the cDNA sequence.</p>
+<p>Alignment and quantification: reads were aligned and quantified with
+STARsolo (<code>--soloType CB_UMI_Simple</code>), matching each read's
+14&nbsp;bp barcode to the known set of sample barcodes with up to 1
+mismatch (<code>--soloCBmatchWLtype 1MM</code>), deduplicating UMIs with a
+directional 1-mismatch-aware algorithm (<code>--soloUMIdedup
+1MM_Directional</code>). Unlike droplet-based single-cell data, every
+barcode here corresponds to a known, real bulk RNA sample rather than an
+unknown mixture of real cells and empty droplets -- so no ambient-RNA/
+empty-droplet filtering was applied; all barcodes present in the pool were
+retained (<code>--soloCellFilter TopCells 96</code>).</p>
+<p class="note">See the STARsolo mapping summary below for the genome(s)
+actually used on this plate, and the project's <code>_methods.txt</code>
+file for the exact command line executed and full annotation provenance
+(species, GENCODE/Ensembl version).</p>
+"""
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--h5ad", required=True)
@@ -495,6 +517,11 @@ def main():
 
 <section>
 <div class="summary-grid">{summary_cards_html}</div>
+</section>
+
+<section>
+<h2>Methods</h2>
+{METHODS_TEXT}
 </section>
 
 <section>

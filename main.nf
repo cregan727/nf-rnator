@@ -73,6 +73,38 @@ process FASTQC {
     """
 }
 
+process SPLIT_FASTQ_BY_SAMPLE {
+    tag "$library"
+    publishDir { "${params.outdir}" }, mode: 'copy'
+    cpus 8
+
+    input:
+    tuple val(library), path(r1), path(r2), path(plate_map)
+
+    output:
+    path "projects/**"
+
+    script:
+    """
+    build_barcode_fasta.py --platemap ${plate_map} --output barcodes.fasta
+
+    # -e 1 --no-indels: exactly 1 mismatch allowed, no indels -- matches
+    # STARsolo's --soloCBmatchWLtype 1MM policy exactly (Hamming distance
+    # only). --action=none: route reads without trimming/modifying them, so
+    # output fastqs keep the full original R1 (barcode+UMI intact) and R2.
+    # Reads that don't match any barcode land in unknown_R1/R2.fastq.gz.
+    cutadapt \\
+        -e 1 --no-indels \\
+        -g ^file:barcodes.fasta \\
+        --action=none \\
+        -j ${task.cpus} \\
+        -o "{name}_R1.fastq.gz" -p "{name}_R2.fastq.gz" \\
+        ${r1} ${r2}
+
+    route_by_project.py --platemap ${plate_map} --library ${library} --indir . --outdir projects
+    """
+}
+
 process STARSOLO {
     tag "${library}/${genome}"
     publishDir { "${params.outdir}/plates/${library}/${genome}" }, mode: 'copy'
@@ -87,10 +119,13 @@ process STARSOLO {
     output:
     tuple val(library), val(genome), path("${library}.${genome}.Solo.out"), path(plate_map), emit: solo_out
     tuple val(library), val(genome), path("${library}.${genome}.Log.final.out"),             emit: log_final
+    tuple val(library), val(genome), path("${library}.${genome}.provenance.txt"),            emit: provenance
 
     script:
     """
     STAR_INDEX=\$(awk -F, -v g="${genome}" 'NR>1 && \$1==g {print \$2}' ${genomes_csv})
+    SPECIES=\$(awk -F, -v g="${genome}" 'NR>1 && \$1==g {print \$4}' ${genomes_csv})
+    ANNOTATION_SOURCE=\$(awk -F, -v g="${genome}" 'NR>1 && \$1==g {print \$5}' ${genomes_csv})
     if [ -z "\$STAR_INDEX" ]; then
         echo "ERROR: genome '${genome}' not found in ${genomes_csv}" >&2
         exit 1
@@ -122,6 +157,22 @@ process STARSOLO {
     # gzipped 10x-style naming convention -- mirrors what nf-core/scrnaseq's
     # own STAR_ALIGN module does for the same reason.
     find ${library}.${genome}.Solo.out \\( -name "*.tsv" -o -name "*.mtx" \\) -exec gzip {} \\;
+
+    # Provenance record: genome/annotation metadata + the EXACT command that
+    # ran, captured from Nextflow's own .command.sh (not retyped/reconstructed
+    # -- zero drift risk between what's documented and what actually executed).
+    {
+        echo "library: ${library}"
+        echo "genome key: ${genome}"
+        echo "species: \$SPECIES"
+        echo "annotation source: \$ANNOTATION_SOURCE"
+        echo "STAR index: \$STAR_INDEX"
+        echo "STAR version: \$(STAR --version)"
+        echo ""
+        echo "Exact command executed (captured from Nextflow's own task script, not retyped):"
+        echo "----------------------------------------------------------------------"
+        cat .command.sh
+    } > ${library}.${genome}.provenance.txt
     """
 }
 
@@ -243,13 +294,68 @@ process EXPORT_GENE_TABLE {
     tuple val(project), path(h5ad)
 
     output:
-    tuple path("${project}_counts.tsv"), path("${project}_metadata.tsv")
+    tuple path("${project}_counts.tsv"), path("${project}_metadata.tsv"), path("${project}_gene_id_map.tsv")
 
     script:
     """
     export_gene_table.py --h5ad ${h5ad} --project "${project}" \\
         --counts-output "${project}_counts.tsv" \\
-        --metadata-output "${project}_metadata.tsv"
+        --metadata-output "${project}_metadata.tsv" \\
+        --gene-id-map-output "${project}_gene_id_map.tsv"
+    """
+}
+
+process BUILD_GENE_ANNOTATION {
+    tag "$genome"
+    publishDir { "${params.outdir}/reference" }, mode: 'copy'
+    cpus 1
+
+    input:
+    tuple val(genome), path(gtf)
+
+    output:
+    tuple val(genome), path("${genome}_gene_annotation.tsv")
+
+    script:
+    """
+    gene_annotation_table.py --gtf ${gtf} --output ${genome}_gene_annotation.tsv
+    """
+}
+
+process EXPORT_PUBLICATION_TABLE {
+    tag "$project"
+    publishDir { "${params.outdir}/projects/${project}" }, mode: 'copy'
+    cpus 2
+
+    input:
+    tuple val(project), path(h5ad), path(gene_annotations)
+
+    output:
+    path "${project}_publication_table.tsv"
+
+    script:
+    """
+    export_publication_table.py --h5ad ${h5ad} \\
+        --gene-annotation ${gene_annotations} \\
+        --project "${project}" --output "${project}_publication_table.tsv"
+    """
+}
+
+process RENDER_METHODS {
+    tag "$project"
+    publishDir { "${params.outdir}/projects/${project}" }, mode: 'copy'
+    cpus 1
+
+    input:
+    tuple val(project), path(h5ad), path(provenance)
+
+    output:
+    path "${project}_methods.txt"
+
+    script:
+    """
+    render_methods.py --h5ad ${h5ad} --project "${project}" \\
+        --provenance ${provenance} --output "${project}_methods.txt"
     """
 }
 
@@ -257,11 +363,23 @@ workflow {
     ch_genomes = file(params.genomes)
     ch_whitelist = file(params.whitelist)
 
+    // one BUILD_GENE_ANNOTATION run per distinct genome in genomes.csv
+    // (not per plate/library -- a genome's annotation is fixed regardless
+    // of how many plates use it)
+    ch_genome_gtfs = Channel.fromPath(params.genomes)
+        .splitCsv(header: true)
+        .map { row -> tuple(row.genome, file(row.gtf)) }
+    BUILD_GENE_ANNOTATION(ch_genome_gtfs)
+    // combined into one list usable by every project's export, since a
+    // project's samples could in principle span more than one genome
+    ch_all_gene_annotations = BUILD_GENE_ANNOTATION.out.map { genome, tsv -> tsv }.collect()
+
     ch_libraries = Channel.fromPath(params.input)
         .splitCsv(header: true)
         .map { row -> tuple(row.library, file(row.fastq_1), file(row.fastq_2), file(row.plate_map)) }
 
     FASTQC(ch_libraries)
+    SPLIT_FASTQ_BY_SAMPLE(ch_libraries)
 
     // Determine the distinct genomes present on each plate from its plate
     // map, and fan out one whole-plate STARsolo run per (library, genome)
@@ -285,6 +403,11 @@ workflow {
         }
 
     STARSOLO(ch_libraries_by_genome, ch_whitelist, ch_genomes)
+
+    // every (library, genome) provenance record, collected once and handed
+    // to every project -- render_methods.py filters down to what's actually
+    // relevant to each project's own h5ad
+    ch_all_provenance = STARSOLO.out.provenance.map { library, genome, txt -> txt }.collect()
 
     MTX_TO_H5AD(STARSOLO.out.solo_out)
 
@@ -318,5 +441,6 @@ workflow {
     MERGE_PROJECT_H5AD(ch_by_project)
     PROJECT_REPORT(MERGE_PROJECT_H5AD.out.h5ad)
     EXPORT_GENE_TABLE(MERGE_PROJECT_H5AD.out.h5ad)
+    EXPORT_PUBLICATION_TABLE(MERGE_PROJECT_H5AD.out.h5ad.combine(ch_all_gene_annotations))
+    RENDER_METHODS(MERGE_PROJECT_H5AD.out.h5ad.combine(ch_all_provenance))
 }
-

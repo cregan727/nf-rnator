@@ -8,7 +8,9 @@ Usage:
 """
 import argparse
 import base64
+import html
 import io
+from pathlib import Path
 
 import anndata as ad
 import matplotlib
@@ -83,6 +85,9 @@ table.tbl th {{ background: {CARD_BG}; color: {GREEN}; text-transform: uppercase
                letter-spacing: 1px; font-weight: 600; font-size: 0.82em; }}
 table.tbl tr:hover {{ background: rgba(63,122,52,0.04); }}
 p.note {{ color: {GREEN_DIM}; font-style: italic; }}
+pre.provenance {{ background: {CARD_BG}; border: 1px solid {BORDER}; border-radius: 8px; padding: 16px 20px;
+                  font-size: 0.82em; line-height: 1.5; white-space: pre-wrap; word-break: break-all;
+                  overflow-x: auto; margin-bottom: 20px; color: {TEXT}; }}
 footer {{ border-top: 1px dashed {BORDER}; padding: 20px 40px; display: flex; justify-content: space-between;
          color: {GREEN_DIM}; font-size: 0.8em; text-transform: uppercase; letter-spacing: 1px; }}
 """
@@ -184,9 +189,10 @@ barcode here corresponds to a known, real bulk RNA sample rather than an
 unknown mixture of real cells and empty droplets -- so no ambient-RNA/
 empty-droplet filtering was applied; all barcodes present in the pool were
 retained (<code>--soloCellFilter TopCells 96</code>).</p>
-<p class="note">See this project's <code>_methods.txt</code> file for the
-exact command line(s) executed and full annotation provenance (species,
-GENCODE/Ensembl version) for every plate contributing to this project.</p>
+<p class="note">See the full provenance record at the bottom of this report
+for the exact command line(s) executed and complete annotation provenance
+(species, GENCODE/Ensembl version) for every plate contributing to this
+project.</p>
 """
 
 
@@ -194,6 +200,9 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--h5ad", required=True, help="Merged per-project .h5ad from merge_project_h5ad.py")
     ap.add_argument("--project", required=True)
+    ap.add_argument("--provenance", required=True, nargs="+",
+                     help="All *.provenance.txt files collected across the run -- "
+                          "filtered down to just the ones relevant to this project")
     ap.add_argument("--output", required=True)
     args = ap.parse_args()
 
@@ -254,7 +263,30 @@ def main():
     ]
     cards = "".join(cards)
 
-    html = f"""<!DOCTYPE html>
+    # ---------------- Full provenance (exact commands) ----------------
+    # provenance filenames are {library}.{genome}.provenance.txt -- only keep
+    # the ones relevant to (library, genome) pairs actually in this project's h5ad
+    relevant_libraries = set(adata.obs["library"].unique()) if "library" in adata.obs else set()
+    relevant_genomes = set(adata.obs["genome"].unique()) if "genome" in adata.obs else set()
+    relevant_provenance = []
+    for f in args.provenance:
+        stem = Path(f).name.removesuffix(".provenance.txt")
+        parts = stem.rsplit(".", 1)
+        if len(parts) != 2:
+            continue
+        library, genome = parts
+        if library in relevant_libraries and genome in relevant_genomes:
+            relevant_provenance.append(f)
+
+    provenance_sections = []
+    for prov_path in sorted(relevant_provenance):
+        label = Path(prov_path).name.removesuffix(".provenance.txt")
+        provenance_sections.append(
+            f"<h3>{label}</h3><pre class=\"provenance\">{html.escape(Path(prov_path).read_text())}</pre>"
+        )
+    provenance_html = "".join(provenance_sections)
+
+    html_doc = f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>{args.project} -- Project QC Report</title>
 <style>{STYLE}</style></head>
 <body>
@@ -267,11 +299,6 @@ def main():
 
 <section>
 <div class="summary-grid">{cards}</div>
-</section>
-
-<section>
-<h2>Methods</h2>
-{METHODS_TEXT}
 </section>
 
 <section>
@@ -294,6 +321,12 @@ def main():
 {sample_table}
 </section>
 
+<section>
+<h2>Methods</h2>
+{METHODS_TEXT}
+{provenance_html}
+</section>
+
 </div>
 <footer>
 <span>RNATOR &middot; NGS Core</span>
@@ -303,7 +336,7 @@ def main():
 </body></html>"""
 
     with open(args.output, "w") as fh:
-        fh.write(html)
+        fh.write(html_doc)
     print(f"Wrote {args.output}")
 
 

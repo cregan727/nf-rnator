@@ -240,14 +240,15 @@ process PLATE_REPORT {
     cpus 2
 
     input:
-    tuple val(library), path(h5ad), path(log_finals), path(well_totals)
+    tuple val(library), path(h5ad), path(log_finals), path(well_totals), path(provenance)
 
     output:
     path "${library}_report.html"
 
     script:
     """
-    plate_report.py --h5ad ${h5ad} --log-final ${log_finals} --well-totals ${well_totals} --library ${library} --output ${library}_report.html
+    plate_report.py --h5ad ${h5ad} --log-final ${log_finals} --well-totals ${well_totals} \\
+        --provenance ${provenance} --library ${library} --output ${library}_report.html
     """
 }
 
@@ -274,14 +275,15 @@ process PROJECT_REPORT {
     cpus 2
 
     input:
-    tuple val(project), path(h5ad)
+    tuple val(project), path(h5ad), path(provenance)
 
     output:
     path "${project}_report.html"
 
     script:
     """
-    project_report.py --h5ad ${h5ad} --project "${project}" --output "${project}_report.html"
+    project_report.py --h5ad ${h5ad} --project "${project}" \\
+        --provenance ${provenance} --output "${project}_report.html"
     """
 }
 
@@ -419,13 +421,19 @@ workflow {
     // per-plate report needs the combined h5ad + every STARsolo log for
     // that plate (one per genome) + every per-genome well_totals CSV
     // (needed to cross-check assigned vs. off-target genome UMI counts)
+    // + every per-genome provenance record, so the report can embed the
+    // exact STARsolo command(s) and annotation provenance for this plate
     ch_plate_logs = STARSOLO.out.log_final
         .map { library, genome, log -> tuple(library, log) }
         .groupTuple()
     ch_plate_totals = MTX_TO_H5AD.out.well_totals.groupTuple()
+    ch_plate_provenance = STARSOLO.out.provenance
+        .map { library, genome, txt -> tuple(library, txt) }
+        .groupTuple()
     ch_plate_report_in = MERGE_PLATE_GENOMES.out.h5ad
         .join(ch_plate_logs)
         .join(ch_plate_totals)
+        .join(ch_plate_provenance)
     PLATE_REPORT(ch_plate_report_in)
 
     // split each plate's (already genome-correct) h5ad into per-project
@@ -439,7 +447,7 @@ workflow {
         .groupTuple()
 
     MERGE_PROJECT_H5AD(ch_by_project)
-    PROJECT_REPORT(MERGE_PROJECT_H5AD.out.h5ad)
+    PROJECT_REPORT(MERGE_PROJECT_H5AD.out.h5ad.combine(ch_all_provenance))
     EXPORT_GENE_TABLE(MERGE_PROJECT_H5AD.out.h5ad)
     EXPORT_PUBLICATION_TABLE(MERGE_PROJECT_H5AD.out.h5ad.combine(ch_all_gene_annotations))
     RENDER_METHODS(MERGE_PROJECT_H5AD.out.h5ad.combine(ch_all_provenance))

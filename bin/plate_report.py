@@ -11,6 +11,7 @@ Usage:
 """
 import argparse
 import base64
+import html
 import io
 import re
 from pathlib import Path
@@ -97,6 +98,9 @@ table.tbl th {{ background: {CARD_BG}; color: {GREEN}; text-transform: uppercase
                letter-spacing: 1px; font-weight: 600; font-size: 0.82em; }}
 table.tbl tr:hover {{ background: rgba(63,122,52,0.04); }}
 p.note {{ color: {GREEN_DIM}; font-style: italic; }}
+pre.provenance {{ background: {CARD_BG}; border: 1px solid {BORDER}; border-radius: 8px; padding: 16px 20px;
+                  font-size: 0.82em; line-height: 1.5; white-space: pre-wrap; word-break: break-all;
+                  overflow-x: auto; margin-bottom: 20px; color: {TEXT}; }}
 footer {{ border-top: 1px dashed {BORDER}; padding: 20px 40px; display: flex; justify-content: space-between;
          color: {GREEN_DIM}; font-size: 0.8em; text-transform: uppercase; letter-spacing: 1px; }}
 """
@@ -288,9 +292,9 @@ unknown mixture of real cells and empty droplets -- so no ambient-RNA/
 empty-droplet filtering was applied; all barcodes present in the pool were
 retained (<code>--soloCellFilter TopCells 96</code>).</p>
 <p class="note">See the STARsolo mapping summary below for the genome(s)
-actually used on this plate, and the project's <code>_methods.txt</code>
-file for the exact command line executed and full annotation provenance
-(species, GENCODE/Ensembl version).</p>
+actually used on this plate, and the full provenance record at the bottom
+of this report for the exact command line executed and complete
+annotation provenance (species, GENCODE/Ensembl version).</p>
 """
 
 
@@ -303,6 +307,8 @@ def main():
                      help="well_totals.csv from mtx_to_h5ad.py, one per genome on this plate -- "
                           "carries every well's UMI count from every genome's alignment, needed to spot mixups")
     ap.add_argument("--library", required=True)
+    ap.add_argument("--provenance", required=True, nargs="+",
+                     help="STARsolo *.provenance.txt, one per genome on this plate")
     ap.add_argument("--output", required=True)
     args = ap.parse_args()
 
@@ -481,6 +487,16 @@ def main():
     project_table = project_counts.to_html(classes="tbl", border=0)
     well_table = per_well.to_html(classes="tbl", border=0, index=False)
 
+    # ---------------- Full provenance (exact commands) ----------------
+    provenance_sections = []
+    for prov_path in sorted(args.provenance):
+        base = Path(prov_path).name
+        genome_label = base[len(args.library) + 1:].removesuffix(".provenance.txt") if base.startswith(args.library + ".") else base
+        provenance_sections.append(
+            f"<h3>Genome: {genome_label}</h3><pre class=\"provenance\">{html.escape(Path(prov_path).read_text())}</pre>"
+        )
+    provenance_html = "".join(provenance_sections)
+
     # ---------------- Summary cards ----------------
     n_wells = len(per_well)
     n_projects = per_well["project"].nunique(dropna=True) if "project" in per_well else 0
@@ -504,7 +520,7 @@ def main():
         cards.append(summary_card("Possible mixups", n_mixups, variant))
     summary_cards_html = "".join(cards)
 
-    html = f"""<!DOCTYPE html>
+    html_doc = f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>RNATOR :: {args.library} -- Plate QC Report</title>
 <style>{STYLE}</style></head>
 <body>
@@ -517,11 +533,6 @@ def main():
 
 <section>
 <div class="summary-grid">{summary_cards_html}</div>
-</section>
-
-<section>
-<h2>Methods</h2>
-{METHODS_TEXT}
 </section>
 
 <section>
@@ -561,6 +572,12 @@ def main():
 {well_table}
 </section>
 
+<section>
+<h2>Methods</h2>
+{METHODS_TEXT}
+{provenance_html}
+</section>
+
 </div>
 <footer>
 <span>RNATOR &middot; NGS Core</span>
@@ -571,7 +588,7 @@ def main():
 
 
     with open(args.output, "w") as fh:
-        fh.write(html)
+        fh.write(html_doc)
     print(f"Wrote {args.output}")
 
 

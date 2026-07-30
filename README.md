@@ -1,3 +1,5 @@
+![RNAtor logo](rnator_banner.svg)
+
 # RNATOR
 
 A Nextflow pipeline for Alithea MERCURIUS BRB-seq data (kit PN 10813,

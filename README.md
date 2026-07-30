@@ -1,16 +1,12 @@
-# brbseq-pipeline
+# RNATOR
 
-A minimal Nextflow pipeline for Alithea MERCURIUS BRB-seq data (kit PN 10813,
-V5A barcode set), built to do only what BRB-seq actually needs rather than
-carry the generality of a pipeline like nf-core/scrnaseq (many aligners, a
-10x-oriented resource/schema system, ambient-RNA removal tuned for droplet
-data). One aligner (STARsolo), one code path, full transparency into every
-command that actually runs.
+A Nextflow pipeline for Alithea MERCURIUS BRB-seq data (kit PN 10813,
+V5D barcode set), built to align BRB-seq data, split fastqs by sample and 
 
 FastQC → multi-genome STARsolo (a plate can mix species across wells) →
 per-well h5ad conversion → split/merge by project → per-plate and
 per-project HTML QC reports with a real 8x12 spatial plate map, including
-detection of cross-genome sample mixups.
+detection of cross-genome sample mixups. Also runs cutadapt to split fastqs. 
 
 ## Requirements
 
@@ -160,7 +156,7 @@ ACTCAGGCACCTCC,C01,ProjectY,SampleY_01,human
 
 ### 4. `--whitelist`: barcode whitelist
 
-The full V5A barcode set for this kit -- one 14bp sequence per line, no
+The full V5D barcode set for this kit -- one 14bp sequence per line, no
 header. Get this from Alithea for your specific kit/lot (they distribute it
 via a gated form/support email, not a public download). See
 `examples/` for the expected plain format (not included here, since the
@@ -179,9 +175,7 @@ STAR --runMode genomeGenerate --runThreadN 16 \
 ```
 
 If you already have a 10x Cell Ranger reference package, don't reuse its
-bundled `star/` index directly -- Cell Ranger pins its own STAR build
-internally, and a version mismatch against whatever STAR you're running
-here can make STAR reject the index outright. Build fresh from that
+bundled `star/` index directly. Build fresh from that
 package's `fasta/genome.fa` + `genes/genes.gtf` (or equivalent) instead.
 
 ## Mixed-genome plates
@@ -195,13 +189,6 @@ the wells actually assigned to that run's genome and drops the rest;
 `merge_plate_genomes.py` recombines the (disjoint) per-genome fragments
 into one correct whole-plate h5ad.
 
-**Cost tradeoff:** a plate with N genomes present costs roughly Nx the
-compute of a single-genome plate -- every genome's STARsolo run processes
-100% of that plate's reads, not a proportional subset. This trades compute
-for avoiding a separate, fragile pre-alignment demultiplexing-by-raw-barcode
-step. Fine for occasional mixed plates; worth knowing if mixed plates
-become the norm.
-
 **Mixup detection:** because every genome's run sees the whole plate before
 filtering, the pipeline also captures each well's UMI count from every
 genome, not just its assigned one. The plate report flags wells where more
@@ -209,28 +196,6 @@ than 10% of total UMIs came from an unassigned genome -- a real signal of
 sample swap or cross-contamination -- while ignoring wells with too little
 total signal (<500 UMIs) for that ratio to be statistically meaningful.
 
-## Known limitations
-
-- If a single project's samples are split across plates aligned to
-  *different* genomes, the merged per-project h5ad will contain disjoint
-  blocks of genes from each genome (outer-joined, zero-padded), not
-  anything biologically reconciled across species.
-- No downstream analysis (normalization, clustering, UMAP, differential
-  expression) -- this pipeline stops at QC'd, correctly-attributed count
-  matrices. BRB-seq samples are bulk RNA samples multiplexed via barcode,
-  not individual cells, so single-cell-style clustering/UMAP isn't a
-  meaningful next step anyway; you'd want a standard bulk differential
-  expression workflow (DESeq2/edgeR-style) on the output matrices instead.
-- Container image pins in `nextflow.config` (particularly the scanpy one)
-  are a reasonable first guess, not independently verified against a live
-  registry -- check they still resolve before relying on this at scale.
-- Not run against real data end-to-end by the author of this scaffold --
-  the Python components (`bin/*.py`) were tested against synthetic
-  fixtures during development (including a deliberately-injected mixup
-  scenario, confirmed correctly detected), but the full `main.nf` DAG
-  itself has not been executed. Treat the first real run as a genuine test,
-  not a guaranteed-correct deliverable -- run on one small plate before
-  trusting it broadly.
 
 ## Output structure
 

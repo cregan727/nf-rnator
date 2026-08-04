@@ -133,6 +133,10 @@ process STARSOLO {
         exit 1
     fi
 
+    # Markers below let the provenance block further down pull just this
+    # command, verbatim, out of .command.sh -- not the surrounding
+    # awk/gzip/provenance-writing plumbing too.
+    # ---- STAR_CMD_START ----
     STAR \\
         --runMode alignReads \\
         --runThreadN ${task.cpus} \\
@@ -153,6 +157,7 @@ process STARSOLO {
         --outSAMtype BAM SortedByCoordinate \\
         --outSAMattributes NH HI nM AS CR UR CB UB GX GN sS sQ sM \\
         --outFileNamePrefix ${library}.${genome}.
+    # ---- STAR_CMD_END ----
 
     # STAR doesn't gzip Solo.out matrix/barcode/feature files by default,
     # but scanpy's read_10x_mtx() (used in mtx_to_h5ad.py) expects the
@@ -160,9 +165,11 @@ process STARSOLO {
     # own STAR_ALIGN module does for the same reason.
     find ${library}.${genome}.Solo.out \\( -name "*.tsv" -o -name "*.mtx" \\) -exec gzip {} \\;
 
-    # Provenance record: genome/annotation metadata + the EXACT command that
-    # ran, captured from Nextflow's own .command.sh (not retyped/reconstructed
-    # -- zero drift risk between what's documented and what actually executed).
+    # Provenance record: genome/annotation metadata + the EXACT STAR command
+    # that ran, pulled verbatim out of Nextflow's own .command.sh between the
+    # markers above (not retyped/reconstructed -- zero drift risk between
+    # what's documented and what actually executed) -- just that command,
+    # not the surrounding awk/gzip/provenance-writing plumbing.
     {
         echo "library: ${library}"
         echo "genome key: ${genome}"
@@ -171,9 +178,9 @@ process STARSOLO {
         echo "STAR index: \$STAR_INDEX"
         echo "STAR version: \$(STAR --version)"
         echo ""
-        echo "Exact command executed (captured from Nextflow's own task script, not retyped):"
+        echo "Exact STAR command executed (captured from Nextflow's own task script, not retyped):"
         echo "----------------------------------------------------------------------"
-        cat .command.sh
+        sed -n '/# ---- STAR_CMD_START ----/,/# ---- STAR_CMD_END ----/p' .command.sh | sed '1d;\$d'
     } > ${library}.${genome}.provenance.txt
     """
 }

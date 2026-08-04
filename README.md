@@ -3,12 +3,14 @@
 # RNATOR
 
 A Nextflow pipeline for Alithea MERCURIUS BRB-seq data (kit PN 10813,
-V5D barcode set), built to align BRB-seq data, split fastqs by sample and 
+V5D barcode set):
 
-FastQC → multi-genome STARsolo (a plate can mix species across wells) →
-per-well h5ad conversion → split/merge by project → per-plate and
-per-project HTML QC reports with a real 8x12 spatial plate map, including
-detection of cross-genome sample mixups. Also runs cutadapt to split fastqs. 
+FastQC → cutadapt-based fastq splitting by sample → multi-genome STARsolo
+(a plate can mix species across wells) → per-well h5ad conversion →
+split/merge by project → per-plate and per-project HTML QC reports with a
+real 8x12 spatial plate map, cross-genome sample mixup detection, and a
+Methods section with the exact STARsolo command(s) and full annotation
+provenance for every plate/genome that contributed to it.
 
 ## Requirements
 
@@ -21,7 +23,7 @@ detection of cross-genome sample mixups. Also runs cutadapt to split fastqs.
 
 ```bash
 git clone <this-repo>
-cd brbseq-pipeline
+cd nf-rnator
 chmod +x bin/*.py    # REQUIRED -- see note below
 ```
 
@@ -231,3 +233,13 @@ debugging against a real cluster:
   based on the script's own file location. `$SLURM_SUBMIT_DIR` is set
   correctly by SLURM regardless -- just make sure you `sbatch` from the
   same directory as your input files.
+- The `#SBATCH --cpus-per-task`/`--mem` request has to actually cover the
+  biggest per-process resource request in `nextflow.config` (`STARSOLO`
+  alone needs `cpus 32` / `memory '120 GB'`), not just enough to launch
+  Nextflow itself -- since everything runs inside this one allocation with
+  no sub-job submission, undersizing it doesn't fail cleanly, it gets
+  STARSOLO silently OOM-killed by the cgroup partway through a run. Keep
+  the SBATCH header in sync with `nextflow.config`'s `executor { cpus /
+  memory }` block, which caps what Nextflow's local executor will try to
+  run at once; bump both together if you want more than one STARSOLO task
+  (one per library x genome pair) running concurrently.

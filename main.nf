@@ -4,7 +4,7 @@ nextflow.enable.dsl=2
 // BRB-seq pipeline: FastQC + multi-genome STARsolo + h5ad splitting by
 // project + per-plate and per-project HTML QC reports.
 //
-// Alithea MERCURIUS BRB-seq kit PN 10813, V5A barcode set:
+// Alithea MERCURIUS BRB-seq kit PN 10813, V5D barcode set:
 //   Read 1 = 14 bp cell barcode + 14 bp UMI (28 bp total), Read 2 = cDNA
 //
 // INPUT FILES
@@ -15,10 +15,12 @@ nextflow.enable.dsl=2
 //     library,fastq_1,fastq_2,plate_map
 //     LibraryA,LibraryA_R1.fastq.gz,LibraryA_R2.fastq.gz,platemap_LibraryA.csv
 //
-// --genomes (required): genomes.csv, maps genome keys to STAR indices:
-//     genome,star_index
-//     mouse,/path/to/mouse/star_index
-//     human,/path/to/human/star_index
+// --genomes (required): genomes.csv, maps genome keys to STAR indices and
+// the annotation/provenance metadata used to build each genome's gene
+// annotation table and the exact-command record in every QC report:
+//     genome,star_index,gtf,species,annotation_source
+//     mouse,/path/to/mouse/star_index,/path/to/mouse/genes.gtf,Mus musculus,GENCODE vM33 / Ensembl 110
+//     human,/path/to/human/star_index,/path/to/human/genes.gtf,Homo sapiens,GENCODE v32 / Ensembl 98
 //
 // Each library's plate_map CSV maps every USED well/barcode to a project,
 // sample name, AND genome:
@@ -362,6 +364,41 @@ process RENDER_METHODS {
 }
 
 workflow {
+    // ---------------- Parameter validation ----------------
+    // Fail fast with a clear message instead of a raw Nextflow internal
+    // error (e.g. "Argument of file() function cannot be null") surfacing
+    // mid-run once some process has already started.
+    if (!params.input) {
+        error "Missing required parameter --input (path to samplesheet.csv). See README.md for its format."
+    }
+    if (!file(params.input).exists()) {
+        error "--input file not found: ${params.input}"
+    }
+    if (!params.genomes) {
+        error "Missing required parameter --genomes (path to genomes.csv). See README.md for its format."
+    }
+    if (!file(params.genomes).exists()) {
+        error "--genomes file not found: ${params.genomes}"
+    }
+    if (!params.whitelist) {
+        error "Missing required parameter --whitelist (path to the barcode whitelist file)."
+    }
+    if (!file(params.whitelist).exists()) {
+        error "--whitelist file not found: ${params.whitelist}"
+    }
+
+    // genomes.csv needs all five columns -- missing 'gtf' in particular used
+    // to fail deep inside BUILD_GENE_ANNOTATION's input channel with an
+    // opaque `file() cannot be null` error; catch it here instead.
+    def requiredGenomeCols = ['genome', 'star_index', 'gtf', 'species', 'annotation_source']
+    def genomesHeader = file(params.genomes).readLines()[0].split(',')*.trim()
+    def missingGenomeCols = requiredGenomeCols.findAll { !(it in genomesHeader) }
+    if (missingGenomeCols) {
+        error "--genomes file ${params.genomes} is missing required column(s): ${missingGenomeCols.join(', ')}.\n" +
+              "Expected header: ${requiredGenomeCols.join(',')}\n" +
+              "See README.md for the genomes.csv format."
+    }
+
     ch_genomes = file(params.genomes)
     ch_whitelist = file(params.whitelist)
 

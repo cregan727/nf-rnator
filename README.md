@@ -40,7 +40,7 @@ Nextflow can pull and run a pipeline directly from GitHub, the same way
 `nextflow run nf-core/scrnaseq` works:
 
 ```bash
-nextflow run <owner>/<repo> --input samplesheet.csv --genomes genomes.csv --whitelist V5A_barcodes.txt --outdir results
+nextflow run <owner>/<repo> --input samplesheet.csv --genomes genomes.csv --whitelist V5D_barcodes.txt --outdir results
 ```
 
 This clones the repo into `~/.nextflow/assets/<owner>/<repo>` and runs its
@@ -75,8 +75,8 @@ nextflow run <owner>/<repo> -r v0.1.0 --input ...
 To update a locally cached copy to the latest commit: `nextflow pull <owner>/<repo>`.
 
 `submit_slurm.sh` is already set up for this pattern -- edit the
-`PIPELINE=EDIT_ME/brbseq-pipeline` line to your actual `owner/repo` once
-it's pushed.
+`PIPELINE=` line to your actual `owner/repo` once it's pushed (already
+set to `cregan727/nf-rnator` here).
 
 ## Quick start
 
@@ -86,7 +86,7 @@ Once pushed to GitHub (see above):
 nextflow run <owner>/<repo> \
     --input samplesheet.csv \
     --genomes genomes.csv \
-    --whitelist V5A_barcodes.txt \
+    --whitelist V5D_barcodes.txt \
     --outdir results
 ```
 
@@ -96,7 +96,7 @@ Or run straight from a local clone without involving GitHub at all:
 nextflow run main.nf \
     --input samplesheet.csv \
     --genomes genomes.csv \
-    --whitelist V5A_barcodes.txt \
+    --whitelist V5D_barcodes.txt \
     --outdir results
 ```
 
@@ -124,12 +124,14 @@ LibraryB,/path/to/LibraryB_R1.fastq.gz,/path/to/LibraryB_R2.fastq.gz,platemap_Li
 
 ### 2. `--genomes`: genomes.csv
 
-Maps a short genome key to a prebuilt STAR index directory.
+Maps a short genome key to a prebuilt STAR index directory, its matching
+GTF (used to build the gene annotation table), and the species/annotation
+provenance recorded in every QC report's Methods section.
 
 ```csv
-genome,star_index
-mouse,/path/to/mouse/star_index
-human,/path/to/human/star_index
+genome,star_index,gtf,species,annotation_source
+mouse,/path/to/mouse/star_index,/path/to/mouse/genes.gtf,Mus musculus,GENCODE vM33 / Ensembl 110
+human,/path/to/human/star_index,/path/to/human/genes.gtf,Homo sapiens,GENCODE v32 / Ensembl 98
 ```
 
 ### 3. Plate map (referenced per-library from the samplesheet)
